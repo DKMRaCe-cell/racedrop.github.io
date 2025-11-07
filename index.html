@@ -1,0 +1,185 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaCe Crop Resize Pro</title>
+    <meta name="description" content="RaCe Crop Resize Pro : Application web pour recadrer, redimensionner et convertir vos images dans plusieurs formats facilement et rapidement.">
+    <meta name="keywords" content="RaCe Crop Resize Pro, recadrer image, redimensionner image, convertir image, PNG, JPEG, JPG, WEBP, BMP, GIF">
+    <meta name="author" content="DAGBEDJI Koba Mathias">
+
+    <!-- Open Graph pour les réseaux sociaux -->
+    <meta property="og:title" content="RaCe Crop Resize Pro">
+    <meta property="og:description" content="RaCe Crop Resize Pro : Application web pour recadrer, redimensionner et convertir vos images dans plusieurs formats facilement et rapidement.">
+    <meta property="og:image" content="ta_photo.jpg">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://racedrop.github.io">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="logo.png">
+
+    <!-- PWA manifest minimal pour installation écran d'accueil -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Loader full screen */
+      #loader {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+
+      /* Points animés */
+      .dot {
+        height: 12px;
+        width: 12px;
+        margin: 0 5px;
+        background-color: #8b5cf6;
+        border-radius: 50%;
+        display: inline-block;
+        animation: bounce 0.6s infinite alternate;
+      }
+      .dot:nth-child(2) { animation-delay: 0.2s; }
+      .dot:nth-child(3) { animation-delay: 0.4s; }
+
+      @keyframes bounce {
+        to { transform: translateY(-15px); }
+      }
+    </style>
+</head>
+<body class="bg-gradient-to-tr from-pink-50 via-purple-50 to-blue-50 flex flex-col items-center justify-center min-h-screen p-4 font-sans">
+
+  <!-- Loader / Splash screen -->
+  <div id="loader">
+    <img src="logo.png" alt="Logo" class="w-32 h-32 mb-6">
+    <div>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+  </div>
+
+  <!-- Contenu principal -->
+  <div id="mainContent" class="hidden bg-white shadow-2xl rounded-3xl p-8 w-full max-w-md text-center transition-transform duration-300 hover:scale-105">
+    <h1 class="text-3xl font-extrabold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 mb-6">🖼️ RaCe Crop Resize Pro</h1>
+
+    <!-- Zone de drop / upload -->
+    <div id="dropZone" class="border-2 border-dashed border-purple-300 rounded-2xl p-8 hover:border-pink-400 hover:bg-pink-50 transition cursor-pointer">
+      <p class="text-purple-600 text-lg font-medium">Glissez une image ici ou cliquez pour importer</p>
+      <input type="file" id="upload" accept="image/*" class="hidden" />
+    </div>
+
+    <!-- Aperçu -->
+    <div class="mt-6">
+      <canvas id="canvas" class="hidden border rounded-xl mx-auto shadow-inner"></canvas>
+    </div>
+
+    <!-- Paramètres -->
+    <div class="mt-6 space-y-4 text-left">
+      <div>
+        <label class="block text-sm font-semibold text-purple-700 mb-1">Largeur :</label>
+        <input type="number" id="width" placeholder="Ex: 600" min="1" class="w-full border border-purple-300 rounded-lg p-2 text-center focus:ring-2 focus:ring-pink-400 focus:outline-none transition" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-purple-700 mb-1">Hauteur :</label>
+        <input type="number" id="height" placeholder="Ex: 600" min="1" class="w-full border border-purple-300 rounded-lg p-2 text-center focus:ring-2 focus:ring-pink-400 focus:outline-none transition" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-purple-700 mb-1">Format :</label>
+        <select id="format" class="w-full border border-purple-300 rounded-lg p-2 text-center focus:ring-2 focus:ring-pink-400 focus:outline-none transition">
+          <option value="image/png">PNG</option>
+          <option value="image/jpeg">JPEG / JPG</option>
+          <option value="image/webp">WEBP</option>
+          <option value="image/bmp">BMP</option>
+          <option value="image/gif">GIF</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="mt-6 flex flex-col space-y-3">
+      <button id="process" class="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 hover:from-blue-500 hover:to-pink-500 text-white py-3 rounded-xl font-bold shadow-lg transform transition hover:-translate-y-1 hover:scale-105">
+        Recadrer & Redimensionner
+      </button>
+      <a id="download" style="display: none;" download="image" class="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white py-3 rounded-xl font-bold shadow-lg transform transition hover:-translate-y-1 hover:scale-105">
+        Télécharger l'image
+      </a>
+    </div>
+  </div>
+
+  <script>
+    // Loader automatique (5 secondes)
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('mainContent').classList.remove('hidden');
+      }, 5000); // durée du loader en ms
+    });
+
+    // Upload et recadrage
+    const upload = document.getElementById('upload');
+    const dropZone = document.getElementById('dropZone');
+    const widthInput = document.getElementById('width');
+    const heightInput = document.getElementById('height');
+    const formatInput = document.getElementById('format');
+    const processButton = document.getElementById('process');
+    const downloadLink = document.getElementById('download');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let img = new Image();
+
+    dropZone.addEventListener('click', () => upload.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-pink-50'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-pink-50'));
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('bg-pink-50'); const file = e.dataTransfer.files[0]; handleFile(file); });
+
+    upload.addEventListener('change', (e) => { const file = e.target.files[0]; handleFile(file); });
+
+    function handleFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => { img.src = e.target.result; };
+      reader.readAsDataURL(file);
+    }
+
+    img.onload = () => { 
+      canvas.classList.remove('hidden'); 
+      canvas.width = img.width; 
+      canvas.height = img.height; 
+      ctx.drawImage(img, 0, 0); 
+    };
+
+    processButton.addEventListener('click', () => {
+      const desiredWidth = parseInt(widthInput.value);
+      const desiredHeight = parseInt(heightInput.value);
+      if (!desiredWidth || !desiredHeight) { alert('Veuillez entrer des dimensions valides.'); return; }
+
+      const cropSize = Math.min(img.width, img.height);
+      const offsetX = (img.width - cropSize) / 2;
+      const offsetY = (img.height - cropSize) / 2;
+
+      canvas.width = desiredWidth;
+      canvas.height = desiredHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, offsetX, offsetY, cropSize, cropSize, 0, 0, desiredWidth, desiredHeight);
+
+      const format = formatInput.value;
+      downloadLink.href = canvas.toDataURL(format);
+      
+      let ext = format.split('/')[1];
+      if (ext === 'jpeg') ext = 'jpg';
+      downloadLink.download = `image.${ext}`;
+
+      downloadLink.style.display = 'block';
+    });
+  </script>
+</body>
+</html>
